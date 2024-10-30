@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Device Data Logger</title>
+</head>
+<body>
+    <h1>Welcome to Our Website</h1>
+    <p>We are collecting your device data for analysis purposes.</p>
+
+    <script>
+        async function collectMobileData() {
+            const userData = {
+                // Browser and device information
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                appName: navigator.appName,
+                screenWidth: screen.width,
+                screenHeight: screen.height,
+                colorDepth: screen.colorDepth,
+                pixelRatio: window.devicePixelRatio,
+                deviceMemory: navigator.deviceMemory || 'unknown',
+                maxTouchPoints: navigator.maxTouchPoints || 'unknown',
+
+                // Network Information
+                connectionType: navigator.connection ? navigator.connection.effectiveType : 'unknown',
+                downlink: navigator.connection ? navigator.connection.downlink : 'unknown',
+                rtt: navigator.connection ? navigator.connection.rtt : 'unknown',
+                saveData: navigator.connection ? navigator.connection.saveData : 'unknown',
+
+                // Battery Information
+                batteryLevel: null,
+                charging: null,
+                chargingTime: null,
+                dischargingTime: null,
+
+                // Orientation and Motion
+                orientation: {
+                    alpha: null,
+                    beta: null,
+                    gamma: null
+                },
+                acceleration: {
+                    x: null,
+                    y: null,
+                    z: null
+                },
+
+                // Geolocation
+                location: {
+                    latitude: null,
+                    longitude: null,
+                    altitude: null,
+                    accuracy: null,
+                    altitudeAccuracy: null,
+                    speed: null,
+                    heading: null
+                },
+
+                // Browser settings
+                language: navigator.language,
+                languages: navigator.languages,
+                cookieEnabled: navigator.cookieEnabled,
+                onLine: navigator.onLine,
+                timestamp: new Date().toISOString(),
+            };
+
+            // Get battery status
+            if (navigator.getBattery) {
+                const battery = await navigator.getBattery();
+                userData.batteryLevel = battery.level * 100 + '%';
+                userData.charging = battery.charging;
+                userData.chargingTime = battery.chargingTime;
+                userData.dischargingTime = battery.dischargingTime;
+            }
+
+            // Geolocation
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userData.location.latitude = position.coords.latitude;
+                        userData.location.longitude = position.coords.longitude;
+                        userData.location.altitude = position.coords.altitude;
+                        userData.location.accuracy = position.coords.accuracy;
+                        userData.location.altitudeAccuracy = position.coords.altitudeAccuracy;
+                        userData.location.speed = position.coords.speed;
+                        userData.location.heading = position.coords.heading;
+                        sendDataToServer(userData);
+                    },
+                    (error) => {
+                        console.warn("Geolocation permission denied or unavailable:", error);
+                        sendDataToServer(userData);
+                    }
+                );
+            } else {
+                sendDataToServer(userData);
+            }
+
+            // Device orientation and motion
+            window.addEventListener('deviceorientation', (event) => {
+                userData.orientation.alpha = event.alpha;
+                userData.orientation.beta = event.beta;
+                userData.orientation.gamma = event.gamma;
+            });
+
+            window.addEventListener('devicemotion', (event) => {
+                userData.acceleration.x = event.acceleration.x;
+                userData.acceleration.y = event.acceleration.y;
+                userData.acceleration.z = event.acceleration.z;
+            });
+        }
+
+        function sendDataToServer(data) {
+            fetch('/log_data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                console.log("Data sent to server");
+            }).catch(error => {
+                console.error("Error sending data", error);
+            });
+        }
+
+        // Collect and send data on page load
+        collectMobileData();
+    </script>
+</body>
+</html>
